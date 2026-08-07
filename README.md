@@ -12,7 +12,10 @@ during install MACSiQview will appear frozen, that should only last a few minute
 the python console will update and confirm the installation after the script has finished running
 
 To run Instanseg, just go in the python menu. In the Instanseg folder click on run_instanseg.
+
 A window will open asking you to select the folder where the images are if loading data from a MACSima experiemnt or to select the image if loading data from a PhenoCycler experiment.
+
 After clicking on next, you will be able to select the channels you want to use to run the segmentation. The more channels selected the longer it will take to run (in our experience using all the channels gives a poorer segmentation result than using a selected few...)
+
 
 Good luck with your segmentation!
