@@ -1,7 +1,7 @@
 import sys
-sys.path.insert(0, r"C:\Users\charoyc\AppData\Roaming\Python\Python39\site-packages")
+sys.path.insert(0, r"C:\Users\username\AppData\Roaming\Python\Python39\site-packages")
 
-tiling_path = r"C:\Users\charoyc\AppData\Roaming\Python\Python39\site-packages\instanseg\utils\tiling.py"
+tiling_path = r"C:\Users\username\AppData\Roaming\Python\Python39\site-packages\instanseg\utils\tiling.py"
 
 with open(tiling_path, "r") as f:
     content = f.read()

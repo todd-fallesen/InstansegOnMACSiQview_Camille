@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, r"C:\Users\charoyc\AppData\Roaming\Python\Python39\site-packages")
+sys.path.insert(0, r"C:\Users\username\AppData\Roaming\Python\Python39\site-packages")
 
 import os
 import torch

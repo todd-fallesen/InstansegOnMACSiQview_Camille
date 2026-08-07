@@ -12,7 +12,7 @@ print("STDERR:", result.stderr)
 # Step 2: Delete leftover torch files manually
 import shutil
 import os
-torch_path = r"C:\Users\charoyc\AppData\Roaming\Python\Python39\site-packages\torch"
+torch_path = r"C:\Users\username\AppData\Roaming\Python\Python39\site-packages\torch"
 if os.path.exists(torch_path):
     print("Removing leftover torch folder...")
     shutil.rmtree(torch_path, ignore_errors=True)
