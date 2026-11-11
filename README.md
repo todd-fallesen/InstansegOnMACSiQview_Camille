@@ -1,4 +1,7 @@
 # MACSiQview
+
+# This is originally Camille's code. Camille is on maternity leave and I forgot to click her invitiation within in a week to colloborate.  This code will eventually merge back in to her original repo.
+
 Scripts needed to install and run Instanseg on MACSiQview for cell segmentation of images generated on the MACSima or on the PhenoCycler
 
 Copy files in C:\Users\username\Documents\QiScripts\instanseg
