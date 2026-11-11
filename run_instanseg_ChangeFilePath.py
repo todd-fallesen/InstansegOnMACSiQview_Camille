@@ -1,11 +1,14 @@
-import sys
+# Add the configured Python package location before importing application dependencies.
 sys.path.insert(0, r"C:\Users\username\AppData\Roaming\Python\Python39\site-packages")
 
+# Import runtime, image-processing, GUI, and segmentation dependencies.
 import os
 import torch
+# Choose the accelerator once so model inference and the UI report the same device.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device:", DEVICE)
 
+# Clear cached GUI modules to avoid reusing stale imports in an embedded session.
 for mod_name in list(sys.modules.keys()):
     if "instanseg_gui" in mod_name:
         del sys.modules[mod_name]
@@ -21,6 +24,7 @@ import time
 
 print("SCRIPT STARTED")
 
+# Central configuration for channel defaults and tiled model inference.
 DEFAULT_CHANNELS = ["DAPI", "CD45", "CD31", "F480", "Pan-Cytokeratin", "CD68", "SMA"]
 KNOWN_CONTROLS = ["mouseIgGa", "mouseIgGa2", "mouseIgGb", "ratIgG", "Blocking", "Dk_anti", "Dk_antiGt"]
 MODEL_NAME = "fluorescence_nuclei_and_cells"
@@ -28,6 +32,7 @@ TILE_SIZE = 512
 OVERLAP = 64
 BATCH_SIZE = 8
 
+# Reuse the host application's Qt event loop when present, otherwise create one.
 app = QApplication.instance()
 if app is None:
     app = QApplication(sys.argv)
@@ -45,6 +50,7 @@ input_label.setWordWrap(True)
 input_label.setProperty("path", None)
 input_label.setProperty("mode", None)
 
+# These callbacks store the selected source path and distinguish its input format.
 def browse_macsima():
     folder = QFileDialog.getExistingDirectory(input_dialog, "Select MACSima ROI Folder")
     if folder:
@@ -61,6 +67,7 @@ def browse_ometiff():
         input_label.setProperty("mode", "ometiff")
         print("Selected OME-TIFF:", f)
 
+# Assemble the first dialog from the two input selectors and navigation controls.
 macsima_btn = QPushButton("Choose MACSima ROI Folder")
 macsima_btn.clicked.connect(browse_macsima)
 ometiff_btn = QPushButton("Choose Phenocycler OME-TIFF File")
@@ -80,6 +87,7 @@ btn_row_1.addWidget(next_btn)
 input_layout.addLayout(btn_row_1)
 input_dialog.setLayout(input_layout)
 
+# Wait for the user to confirm or cancel input selection.
 result = input_dialog.exec_()
 if result != QDialog.Accepted:
     print("Cancelled.")
@@ -105,6 +113,7 @@ print("Input:", input_path)
 
 channel_entries = []
 
+# Discover MACSima channel images by parsing cycle folders and image filenames.
 if input_mode == "macsima":
     print("Scanning MACSima folder for channels...")
     def cycle_sort_key(folder_name):
@@ -166,6 +175,7 @@ if input_mode == "macsima":
         if "3_Scan2" in e["key"]:
             print(" ", e["label"], "| default:", e["default"])
 
+# Read channel names from OME metadata and disambiguate repeated names for selection.
 elif input_mode == "ometiff":
     print("Reading channel names from OME metadata...")
     with tifffile.TiffFile(input_path) as tif:
@@ -216,6 +226,7 @@ channel_layout = QVBoxLayout()
 
 widgets = {}
 
+# Collect segmentation settings, including pixel size and an optional output folder.
 channel_layout.addWidget(QLabel("Pixel size (um):"))
 widgets["pixel_size"] = QLineEdit("0.17" if input_mode == "macsima" else "0.5")
 channel_layout.addWidget(widgets["pixel_size"])
@@ -225,6 +236,7 @@ widgets["output_label"] = QLabel("Default: saved next to input")
 widgets["output_label"].setWordWrap(True)
 widgets["output_label"].setProperty("path", None)
 
+# Let the user choose a destination; otherwise the script selects a default later.
 def browse_output():
     folder = QFileDialog.getExistingDirectory(channel_dialog, "Select Output Folder")
     if folder:
@@ -245,6 +257,7 @@ else:
     channel_layout.addWidget(QLabel("Select channels for segmentation:"))
     channel_layout.addWidget(QLabel("Duplicate channels flagged by occurrence number."))
 
+# Create a scrollable checkbox for every discovered channel, using its default flag.
 scroll_widget = QWidget()
 scroll_layout = QVBoxLayout()
 scroll_widget.setLayout(scroll_layout)
@@ -262,6 +275,7 @@ scroll.setWidgetResizable(True)
 scroll.setMinimumHeight(350)
 channel_layout.addWidget(scroll)
 
+# The run callback closes the settings dialog after reporting any callback error.
 def on_run():
     try:
         print("RUN BUTTON PRESSED")
@@ -280,6 +294,7 @@ btn_row_2.addWidget(run_btn)
 channel_layout.addLayout(btn_row_2)
 channel_dialog.setLayout(channel_layout)
 
+# Continue only after the user accepts the settings dialog.
 result = channel_dialog.exec_()
 if result != QDialog.Accepted:
     print("Cancelled.")
@@ -290,6 +305,7 @@ else:
         print("Invalid pixel size, using default 0.17")
         pixel_size = 0.17
 
+    # Resolve the destination and collect the channels checked for segmentation.
     custom_output = widgets["output_label"].property("path")
     if custom_output:
         output_base = custom_output
@@ -306,6 +322,7 @@ else:
     # -------------------------------------------------------
     # Step 4: Open image data
     # -------------------------------------------------------
+    # Initialize the model and prepare source handles for either input format.
     print("Loading InstanSeg model...")
     model = InstanSeg(MODEL_NAME)
     model.inference_device = DEVICE
@@ -317,6 +334,7 @@ else:
     ome_tif_handle = None
     channel_mmaps = []
 
+    # Open MACSima images as per-channel memory maps, or prepare the OME-TIFF reader.
     if input_mode == "macsima":
         channel_files = [e["file"] for e in selected_entries]
         print("Opening channel files...")
@@ -347,6 +365,7 @@ else:
     # -------------------------------------------------------
     # Step 5: Calculate tiles
     # -------------------------------------------------------
+    # Compute overlapping tile windows and non-overlapping core regions for output.
     tile_step = TILE_SIZE - OVERLAP
     n_tiles_y = max(1, int(np.ceil((img_h - OVERLAP) / tile_step)))
     n_tiles_x = max(1, int(np.ceil((img_w - OVERLAP) / tile_step)))
@@ -371,6 +390,7 @@ else:
     # -------------------------------------------------------
     # Step 6: Progress dialog
     # -------------------------------------------------------
+    # Display the run configuration and live progress before starting inference.
     progress_dialog = QDialog()
     progress_dialog.setWindowTitle("InstanSeg - Running Segmentation")
     progress_dialog.setMinimumWidth(500)
@@ -410,6 +430,7 @@ else:
     # -------------------------------------------------------
     # Step 7: Tiled segmentation
     # -------------------------------------------------------
+    # Allocate full-image label masks and counters for globally unique object IDs.
     nuclei_output = np.zeros((img_h, img_w), dtype=np.uint16)
     cells_output = np.zeros((img_h, img_w), dtype=np.uint16)
     nuclei_counter = 1
@@ -417,6 +438,7 @@ else:
     tile_num = 0
     start_time = time.time()
 
+    # Load image tiles in batches, run segmentation, and stitch only each tile's core.
     for batch_start in range(0, n_tiles_total, BATCH_SIZE):
         batch_coords = tile_coords[batch_start:batch_start + BATCH_SIZE]
         batch_tiles = []
@@ -445,6 +467,7 @@ else:
 
             batch_tiles.append(np.stack(tile_channels, axis=0))
 
+        # Run the model on each prepared tile and copy relabeled core pixels into output masks.
         for i, (y0, x0, y1, x1, core_y0, core_x0, core_y1, core_x1) in enumerate(batch_coords):
             labeled_output, _ = model.eval_small_image(batch_tiles[i], pixel_size)
             nuclei_tile = labeled_output[0, 0].numpy().astype(np.uint16)
@@ -482,13 +505,14 @@ else:
         eta_label.setText("Estimated time remaining: " + str(mins) + " min " + str(secs) + " sec")
         app.processEvents()
 
-    # Close file handles
+# Close the OME-TIFF handle after all tile reads are complete.
     if ome_tif_handle is not None:
         ome_tif_handle.close()
 
     # -------------------------------------------------------
     # Step 8: Save masks and log
     # -------------------------------------------------------
+    # Write both segmentation masks and a text record of the run settings.
     progress_label.setText("Saving masks...")
     app.processEvents()
 
@@ -525,6 +549,7 @@ else:
     # -------------------------------------------------------
     # Step 9: Done dialog
     # -------------------------------------------------------
+    # Show the output paths and a short reminder for importing masks in MACSiQview.
     done_dialog = QDialog()
     done_dialog.setWindowTitle("InstanSeg - Done!")
     done_layout = QVBoxLayout()
